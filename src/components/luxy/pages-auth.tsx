@@ -2,7 +2,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 import { Btn, ErrorNote, Field, Wordmark, inputClass } from "@/components/luxy/bits";
 import { landing } from "@/lib/luxy/pricing";
-import { useLuxy } from "@/lib/luxy/store";
+import { useHydrated, useLuxy } from "@/lib/luxy/store";
 
 const DEMOS = [
   ["Adaeze · customer", "ada@luxy.demo"],
@@ -17,17 +17,22 @@ export function LoginPage() {
   const signIn = useLuxy((s) => s.signIn);
   const reset = useLuxy((s) => s.resetDemo);
   const navigate = useNavigate();
+  const ready = useHydrated();
   const [err, setErr] = useState("");
 
   function go(email: string, password: string) {
+    if (!ready) return;
     const error = signIn(email, password);
     if (error) {
       setErr(error);
       return;
     }
-    const user = useLuxy.getState().users.find((u) => u.email === email);
-    if (next && next.startsWith("/")) navigate({ href: next });
-    else if (user) navigate({ href: landing(user.role) });
+    const user = useLuxy.getState().users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
+    const home = user ? landing(user.role) : "/";
+    const roleShell = /^\/(customer|owner|driver|admin)(\/|$)/;
+    const nextOk = !!next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login") && !roleShell.test(next);
+    if (nextOk) navigate({ href: next, replace: true });
+    else navigate({ to: home, replace: true });
   }
 
   return (
@@ -45,11 +50,11 @@ export function LoginPage() {
         <Field label="Email"><input name="email" type="email" required className={inputClass} /></Field>
         <Field label="Password"><input name="password" type="password" required className={inputClass} /></Field>
         <ErrorNote>{err}</ErrorNote>
-        <Btn type="submit" className="w-full">Sign in</Btn>
+        <Btn type="submit" className="w-full" disabled={!ready}>{ready ? "Sign in" : "Loading…"}</Btn>
       </form>
       <div className="mt-6 space-y-2">
         {DEMOS.map(([label, email]) => (
-          <button key={email} className="flex min-h-11 w-full items-center rounded-lg border border-line px-3 text-left text-sm" onClick={() => go(email, "luxy2026")}>
+          <button key={email} type="button" disabled={!ready} className="flex min-h-11 w-full items-center rounded-lg border border-line px-3 text-left text-sm disabled:opacity-50" onClick={() => go(email, "luxy2026")}>
             {label}
           </button>
         ))}

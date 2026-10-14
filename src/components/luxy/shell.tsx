@@ -103,16 +103,17 @@ export function RoleGuard({ role, children }: { role: Role; children: ReactNode 
   const user = useUser();
   const ready = useHydrated();
   const navigate = useNavigate();
-  const href = useRouterState({ select: (s) => s.location.href });
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   useEffect(() => {
     if (!ready) return;
-    if (!user) navigate({ to: "/login", search: { next: href } });
-    else if (user.role !== role) navigate({ to: landing(user.role) });
-  }, [ready, user, role, href, navigate]);
-  if (!ready || !user || user.role !== role) {
-    return <p className="p-8 text-sm text-muted">Taking you to the right place…</p>;
-  }
-  return children;
+    if (!user) {
+      if (!pathname.startsWith("/login")) navigate({ to: "/login", replace: true });
+      return;
+    }
+    if (user.role !== role) navigate({ to: landing(user.role), replace: true });
+  }, [ready, user, role, pathname, navigate]);
+  if (user && user.role === role) return children;
+  return <p className="p-8 text-sm text-muted">Taking you to the right place…</p>;
 }
 
 export function DashShell({ role, children }: { role: Role; children: ReactNode }) {
@@ -125,7 +126,7 @@ export function DashShell({ role, children }: { role: Role; children: ReactNode 
 
   function leave() {
     signOut();
-    navigate({ to: "/" });
+    navigate({ to: "/login", replace: true });
   }
 
   const side = (
@@ -266,7 +267,7 @@ export function StoreShell({ children }: { children: ReactNode }) {
         </div>
       ) : null}
       <div className="min-w-0 flex-1">
-        <header className="flex items-center justify-between gap-3 border-b border-line bg-card px-4 py-3 md:px-8">
+        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-card px-4 py-3 md:px-8">
           <button className="min-h-11 min-w-11 md:hidden" aria-label="Open menu" onClick={() => setOpen(true)}>
             <Menu />
           </button>

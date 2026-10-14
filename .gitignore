@@ -1,0 +1,14 @@
+node_modules
+dist
+.output
+.vercel
+.nitro
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+artifacts
+attachments
+screenshots
+public/luxy-source.zip

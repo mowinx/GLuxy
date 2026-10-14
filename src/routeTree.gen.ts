@@ -61,6 +61,7 @@ import { Route as DriverTripsRouteImport } from './routes/driver/trips'
 import { Route as DriverVehiclesRouteImport } from './routes/driver/vehicles'
 import { Route as DriverWalletRouteImport } from './routes/driver/wallet'
 import { Route as InviteInviteIdRouteImport } from './routes/invite/$inviteId'
+import { Route as OpenRoleRouteImport } from './routes/open.$role'
 import { Route as OwnerIndexRouteImport } from './routes/owner/index'
 import { Route as OwnerBookingsRouteImport } from './routes/owner/bookings'
 import { Route as OwnerCalendarRouteImport } from './routes/owner/calendar'
@@ -336,6 +337,11 @@ const InviteInviteIdRoute = InviteInviteIdRouteImport.update({
   path: '/invite/$inviteId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OpenRoleRoute = OpenRoleRouteImport.update({
+  id: '/open/$role',
+  path: '/open/$role',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OwnerIndexRoute = OwnerIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -457,6 +463,7 @@ export interface FileRoutesByFullPath {
   '/driver/vehicles': typeof DriverVehiclesRoute
   '/driver/wallet': typeof DriverWalletRoute
   '/invite/$inviteId': typeof InviteInviteIdRoute
+  '/open/$role': typeof OpenRoleRoute
   '/owner/bookings': typeof OwnerBookingsRoute
   '/owner/calendar': typeof OwnerCalendarRoute
   '/owner/drivers': typeof OwnerDriversRoute
@@ -521,6 +528,7 @@ export interface FileRoutesByTo {
   '/driver/vehicles': typeof DriverVehiclesRoute
   '/driver/wallet': typeof DriverWalletRoute
   '/invite/$inviteId': typeof InviteInviteIdRoute
+  '/open/$role': typeof OpenRoleRoute
   '/owner/bookings': typeof OwnerBookingsRoute
   '/owner/calendar': typeof OwnerCalendarRoute
   '/owner/drivers': typeof OwnerDriversRoute
@@ -590,6 +598,7 @@ export interface FileRoutesById {
   '/driver/vehicles': typeof DriverVehiclesRoute
   '/driver/wallet': typeof DriverWalletRoute
   '/invite/$inviteId': typeof InviteInviteIdRoute
+  '/open/$role': typeof OpenRoleRoute
   '/owner/bookings': typeof OwnerBookingsRoute
   '/owner/calendar': typeof OwnerCalendarRoute
   '/owner/drivers': typeof OwnerDriversRoute
@@ -660,6 +669,7 @@ export interface FileRouteTypes {
     | '/driver/vehicles'
     | '/driver/wallet'
     | '/invite/$inviteId'
+    | '/open/$role'
     | '/owner/bookings'
     | '/owner/calendar'
     | '/owner/drivers'
@@ -724,6 +734,7 @@ export interface FileRouteTypes {
     | '/driver/vehicles'
     | '/driver/wallet'
     | '/invite/$inviteId'
+    | '/open/$role'
     | '/owner/bookings'
     | '/owner/calendar'
     | '/owner/drivers'
@@ -792,6 +803,7 @@ export interface FileRouteTypes {
     | '/driver/vehicles'
     | '/driver/wallet'
     | '/invite/$inviteId'
+    | '/open/$role'
     | '/owner/bookings'
     | '/owner/calendar'
     | '/owner/drivers'
@@ -825,6 +837,7 @@ export interface RootRouteChildren {
   BookingRefIdRoute: typeof BookingRefIdRoute
   CarsIdRoute: typeof CarsIdRoute
   InviteInviteIdRoute: typeof InviteInviteIdRoute
+  OpenRoleRoute: typeof OpenRoleRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1193,6 +1206,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteInviteIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/open/$role': {
+      id: '/open/$role'
+      path: '/open/$role'
+      fullPath: '/open/$role'
+      preLoaderRoute: typeof OpenRoleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/owner/': {
       id: '/owner/'
       path: '/'
@@ -1458,6 +1478,7 @@ const rootRouteChildren: RootRouteChildren = {
   BookingRefIdRoute: BookingRefIdRoute,
   CarsIdRoute: CarsIdRoute,
   InviteInviteIdRoute: InviteInviteIdRoute,
+  OpenRoleRoute: OpenRoleRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

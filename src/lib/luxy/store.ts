@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { useShallow } from "zustand/react/shallow";
 import { carName } from "./catalog";
 import {
   carLimit,
@@ -27,9 +28,16 @@ import type {
   Role,
 } from "./types";
 
+let pinnedUserId: string | null = null;
+
+function asArray<T>(value: unknown, fallback: T[]): T[] {
+  return Array.isArray(value) ? (value as T[]) : fallback;
+}
+
 export type LuxyState = Data & {
   signIn: (email: string, password: string) => string | null;
   signOut: () => void;
+  enterDemo: (email: string) => Role | null;
   signUp: (input: {
     role: "customer" | "owner";
     full_name: string;
@@ -93,14 +101,34 @@ export const useLuxy = create<LuxyState>()(
       ...freshData(),
 
       signIn: (email, password) => {
-        const user = get().users.find(
-          (u) => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password,
-        );
+        const mail = email.trim().toLowerCase();
+        const match = () =>
+          get().users.find((u) => u.email.toLowerCase() === mail && u.password === password);
+        let user = match();
+        if (!user && mail.endsWith("@luxy.demo")) {
+          const have = new Set(get().users.map((u) => u.email.toLowerCase()));
+          const extras = freshData().users.filter((u) => !have.has(u.email.toLowerCase()));
+          if (extras.length) set({ users: [...get().users, ...extras] });
+          user = match();
+        }
         if (!user) return "Email or password is wrong.";
         set({ session: { userId: user.id } });
         return null;
       },
       signOut: () => set({ session: null }),
+      enterDemo: (email) => {
+        const mail = email.trim().toLowerCase();
+        const seeded = freshData().users.find((u) => u.email.toLowerCase() === mail);
+        if (!seeded) return null;
+        const users = get().users.some((u) => u.email.toLowerCase() === mail)
+          ? get().users.map((u) => (u.email.toLowerCase() === mail ? { ...seeded, id: u.id } : u))
+          : [...get().users, seeded];
+        const user = users.find((u) => u.email.toLowerCase() === mail);
+        if (!user) return null;
+        pinnedUserId = user.id;
+        set({ users, session: { userId: user.id } });
+        return user.role;
+      },
       signUp: (input) => {
         const email = input.email.trim().toLowerCase();
         if (input.password.length < 8) return "Password must be at least 8 characters.";
@@ -729,6 +757,26 @@ export const useLuxy = create<LuxyState>()(
     {
       name: "luxy-v1",
       version: 1,
+      merge: (persisted, current) => {
+        const saved = (persisted ?? {}) as Partial<LuxyState>;
+        const base = current;
+        const users = asArray(saved.users, base.users);
+        const next = {
+          ...base,
+          ...saved,
+          users: pinnedUserId && !users.some((u) => u.id === pinnedUserId)
+            ? [...users, ...(base.users.filter((u) => u.id === pinnedUserId))]
+            : users,
+          cars: asArray(saved.cars, base.cars),
+          bookings: asArray(saved.bookings, base.bookings),
+          reviews: asArray(saved.reviews, base.reviews),
+          favorites: asArray(saved.favorites, base.favorites),
+          invites: asArray(saved.invites, base.invites),
+          support: asArray(saved.support, base.support),
+          session: pinnedUserId ? { userId: pinnedUserId } : base.session ?? saved.session ?? null,
+        };
+        return next;
+      },
       partialize: (s) => ({
         users: s.users,
         cars: s.cars,
@@ -788,20 +836,36 @@ function activate(
   return null;
 }
 
+/** Selectors that return a new array or object must go through this. A fresh snapshot every read makes React 19 loop forever. */
+export function useLuxyQuery<T>(selector: (s: LuxyState) => T): T {
+  return useLuxy(useShallow(selector));
+}
+
 export function useHydrated() {
-  const [ready, setReady] = useState(() => useLuxy.persist.hasHydrated());
+  const [ready, setReady] = useState(false);
   useEffect(() => {
-    if (useLuxy.persist.hasHydrated()) {
+    const persist = useLuxy.persist;
+    if (!persist) {
       setReady(true);
       return;
     }
-    return useLuxy.persist.onFinishHydration(() => setReady(true));
+    if (persist.hasHydrated()) {
+      setReady(true);
+      return;
+    }
+    const unsub = persist.onFinishHydration(() => setReady(true));
+    if (persist.hasHydrated()) setReady(true);
+    return unsub;
   }, []);
   return ready;
 }
 
 export function useUser() {
-  return useLuxy((s) => s.users.find((u) => u.id === s.session?.userId) ?? null);
+  return useLuxy((s) => {
+    const id = pinnedUserId ?? s.session?.userId;
+    if (!id) return null;
+    return s.users.find((u) => u.id === id) ?? null;
+  });
 }
 
 export function useSessionReady() {

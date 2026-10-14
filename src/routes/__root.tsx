@@ -28,6 +28,12 @@ export const Route = createRootRoute({
         <HeadContent />
       </head>
       <body>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'document.addEventListener("click",function(e){var n=e.target&&e.target.closest?e.target.closest("[data-open]"):null;if(!n)return;var role=n.getAttribute("data-open");if(!role)return;var m=location.pathname.match(/^\\/hds-[^/]+/);var prefix=m?m[0]:"";e.preventDefault();location.assign(prefix+"/open/"+role);},true);',
+          }}
+        />
         <PreviewHostBridge />
         <AuthProvider>
           <Outlet />

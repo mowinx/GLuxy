@@ -19,7 +19,7 @@ import {
   suggestRates,
   wallet,
 } from "@/lib/luxy/pricing";
-import { useLuxy, useUser } from "@/lib/luxy/store";
+import { useLuxy, useLuxyQuery, useUser } from "@/lib/luxy/store";
 import type { Booking, BookingStatus, Car, Role } from "@/lib/luxy/types";
 
 function hrefFor(role: Role, b: Booking) {
@@ -45,7 +45,7 @@ function bucket(status: BookingStatus) {
 }
 
 export function BookingList({ rows, role, showMoney }: { rows: Booking[]; role: Role; showMoney: boolean }) {
-  const cars = useLuxy((s) => s.cars);
+  const cars = useLuxyQuery((s) => s.cars);
   const [tab, setTab] = useState("Pending");
   const shown = rows.filter((b) => bucket(effectiveStatus(b)) === tab);
   return (
@@ -74,10 +74,12 @@ export function BookingList({ rows, role, showMoney }: { rows: Booking[]; role: 
 }
 
 export function CustomerHome() {
-  const user = useUser()!;
-  const bookings = useLuxy((s) => s.bookings.filter((b) => b.customer_id === user.id));
-  const favorites = useLuxy((s) => s.favorites.filter((f) => f.customer_id === user.id));
-  const cars = useLuxy((s) => s.cars);
+  const user = useUser();
+  const id = user?.id ?? "";
+  const bookings = useLuxyQuery((s) => s.bookings.filter((b) => b.customer_id === id));
+  const favorites = useLuxyQuery((s) => s.favorites.filter((f) => f.customer_id === id));
+  const cars = useLuxyQuery((s) => s.cars);
+  if (!user) return <p className="p-6 text-sm text-body">Opening your dashboard…</p>;
   const spent = bookings.filter((b) => b.escrow_status === "released" || b.status === "completed" || b.status === "confirmed" || b.status === "active").reduce((a, b) => a + b.total_amount, 0);
   const upcoming = bookings.find((b) => ["confirmed", "active", "overdue"].includes(effectiveStatus(b)));
   const recommended = publicCars(cars).filter((c) => !bookings.some((b) => b.car_id === c.id && effectiveStatus(b) !== "cancelled_pre_pickup")).slice(0, 3);
@@ -118,7 +120,7 @@ export function CustomerHome() {
 }
 
 export function CustomerCars() {
-  const cars = useLuxy((s) => publicCars(s.cars));
+  const cars = useLuxyQuery((s) => publicCars(s.cars));
   const [q, setQ] = useState("");
   const rows = cars.filter((c) => `${c.name} ${c.location}`.toLowerCase().includes(q.toLowerCase()));
   return (
@@ -132,21 +134,21 @@ export function CustomerCars() {
 
 export function CustomerBookings() {
   const user = useUser()!;
-  const rows = useLuxy((s) => s.bookings.filter((b) => b.customer_id === user.id));
+  const rows = useLuxyQuery((s) => s.bookings.filter((b) => b.customer_id === user.id));
   return <div><PageTitle title="My bookings" /><BookingList rows={rows} role="customer" showMoney /></div>;
 }
 
 export function CustomerFavorites() {
   const user = useUser()!;
-  const fav = useLuxy((s) => s.favorites.filter((f) => f.customer_id === user.id));
-  const cars = useLuxy((s) => s.cars);
+  const fav = useLuxyQuery((s) => s.favorites.filter((f) => f.customer_id === user.id));
+  const cars = useLuxyQuery((s) => s.cars);
   const rows = fav.map((f) => cars.find((c) => c.id === f.car_id)).filter((c): c is Car => !!c && isPublicCar(c));
   return <div><PageTitle title="Favorites" />{rows.length ? <div className="grid gap-4 sm:grid-cols-2">{rows.map((c) => <CarCard key={c.id} car={c} />)}</div> : <Empty title="You have not saved a car yet." />}</div>;
 }
 
 export function CustomerWallet() {
   const user = useUser()!;
-  const rows = useLuxy((s) => s.bookings.filter((b) => b.customer_id === user.id));
+  const rows = useLuxyQuery((s) => s.bookings.filter((b) => b.customer_id === user.id));
   const spent = rows.reduce((a, b) => a + (b.escrow_status === "refunded" || b.escrow_status === "partial_refund" ? b.total_amount - b.refund_amount : b.total_amount), 0);
   return (
     <div className="space-y-4">
@@ -167,8 +169,8 @@ export function CustomerWallet() {
 
 export function CustomerReviews() {
   const user = useUser()!;
-  const reviews = useLuxy((s) => s.reviews.filter((r) => r.customer_id === user.id));
-  const cars = useLuxy((s) => s.cars);
+  const reviews = useLuxyQuery((s) => s.reviews.filter((r) => r.customer_id === user.id));
+  const cars = useLuxyQuery((s) => s.cars);
   return (
     <div>
       <PageTitle title="Reviews" />
@@ -191,9 +193,9 @@ export function NotificationsStub() { return <Stub title="Notifications" copy="T
 
 export function CustomerSettings() {
   const user = useUser()!;
-  const kyc = useLuxy((s) => s.customerKyc[user.id]);
-  const save = useLuxy((s) => s.saveCustomerKyc);
-  const bio = useLuxy((s) => s.updateBio);
+  const kyc = useLuxyQuery((s) => s.customerKyc[user.id]);
+  const save = useLuxyQuery((s) => s.saveCustomerKyc);
+  const bio = useLuxyQuery((s) => s.updateBio);
   const [msg, setMsg] = useState("");
   return (
     <form className="max-w-lg space-y-3" onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); bio(String(fd.get("bio"))); save({ nin: String(fd.get("nin")), bvn: String(fd.get("bvn")), submitted_at: null }); setMsg("Saved."); }}>
@@ -208,9 +210,10 @@ export function CustomerSettings() {
 }
 
 export function OwnerHome() {
-  const user = useUser()!;
-  const cars = useLuxy((s) => s.cars.filter((c) => c.owner_id === user.id));
-  const bookings = useLuxy((s) => s.bookings.filter((b) => b.owner_id === user.id));
+  const user = useUser();
+  const id = user?.id ?? "";
+  const cars = useLuxyQuery((s) => s.cars.filter((c) => c.owner_id === id));
+  const bookings = useLuxyQuery((s) => s.bookings.filter((b) => b.owner_id === id));
   const w = wallet(bookings, "owner_amount");
   const rated = cars.filter((c) => c.rating != null);
   const avg = rated.length ? (rated.reduce((a, c) => a + (c.rating ?? 0), 0) / rated.length).toFixed(1) : "—";
@@ -228,6 +231,7 @@ export function OwnerHome() {
   const startable = bookings.filter((b) => b.status === "confirmed" && self && b.car_id === self.id);
   const done = bookings.filter((b) => !b.status.startsWith("cancelled"));
   const cancelled = bookings.filter((b) => b.status.startsWith("cancelled")).length;
+  if (!user) return <p className="p-6 text-sm text-body">Opening your dashboard…</p>;
   return (
     <div className="space-y-6">
       <PageTitle title="Owner" />
@@ -266,7 +270,7 @@ function OwnerCarRow({ car }: { car: Car }) {
 
 export function OwnerCars() {
   const user = useUser()!;
-  const cars = useLuxy((s) => s.cars.filter((c) => c.owner_id === user.id));
+  const cars = useLuxyQuery((s) => s.cars.filter((c) => c.owner_id === user.id));
   return (
     <div>
       <PageTitle title="My cars" extra={<Link to="/owner/cars/new" className="inline-flex min-h-11 items-center rounded-lg bg-accent px-3 text-sm text-card">Add new car</Link>} />
@@ -276,7 +280,7 @@ export function OwnerCars() {
 }
 
 export function OwnerNewCar() {
-  const create = useLuxy((s) => s.createCar);
+  const create = useLuxyQuery((s) => s.createCar);
   const [make, setMake] = useState("Mercedes-Benz");
   const [daily, setDaily] = useState(250000);
   const [err, setErr] = useState("");
@@ -330,13 +334,13 @@ export function OwnerNewCar() {
 }
 
 export function OwnerCarPage({ carId }: { carId: string }) {
-  const car = useLuxy((s) => s.cars.find((c) => c.id === carId));
+  const car = useLuxyQuery((s) => s.cars.find((c) => c.id === carId));
   const user = useUser()!;
-  const update = useLuxy((s) => s.updateCar);
-  const assign = useLuxy((s) => s.assignDriver);
-  const invites = useLuxy((s) => s.invites.filter((i) => i.owner_id === user.id && i.owner_approved_at && i.admin_approved_at && i.accepted_profile_id));
-  const users = useLuxy((s) => s.users);
-  const bookings = useLuxy((s) => s.bookings.filter((b) => b.car_id === carId));
+  const update = useLuxyQuery((s) => s.updateCar);
+  const assign = useLuxyQuery((s) => s.assignDriver);
+  const invites = useLuxyQuery((s) => s.invites.filter((i) => i.owner_id === user.id && i.owner_approved_at && i.admin_approved_at && i.accepted_profile_id));
+  const users = useLuxyQuery((s) => s.users);
+  const bookings = useLuxyQuery((s) => s.bookings.filter((b) => b.car_id === carId));
   const [err, setErr] = useState("");
   if (!car || car.owner_id !== user.id) return <p>Not your car.</p>;
   return (
@@ -388,13 +392,13 @@ export function OwnerCarPage({ carId }: { carId: string }) {
 
 export function OwnerBookings() {
   const user = useUser()!;
-  const rows = useLuxy((s) => s.bookings.filter((b) => b.owner_id === user.id));
+  const rows = useLuxyQuery((s) => s.bookings.filter((b) => b.owner_id === user.id));
   return <div><PageTitle title="Bookings" /><BookingList rows={rows} role="owner" showMoney /></div>;
 }
 
 export function CalendarPage({ role }: { role: "owner" | "driver" }) {
   const user = useUser()!;
-  const bookings = useLuxy((s) => s.bookings.filter((b) => (role === "owner" ? b.owner_id === user.id : b.driver_id === user.id)));
+  const bookings = useLuxyQuery((s) => s.bookings.filter((b) => (role === "owner" ? b.owner_id === user.id : b.driver_id === user.id)));
   const [day, setDay] = useState<string | null>(null);
   const marks: Record<string, number> = {};
   bookings.forEach((b) => {
@@ -422,7 +426,7 @@ export function CalendarPage({ role }: { role: "owner" | "driver" }) {
 
 export function OwnerWallet() {
   const user = useUser()!;
-  const rows = useLuxy((s) => s.bookings.filter((b) => b.owner_id === user.id));
+  const rows = useLuxyQuery((s) => s.bookings.filter((b) => b.owner_id === user.id));
   const w = wallet(rows, "owner_amount");
   return (
     <div className="space-y-4">
@@ -436,10 +440,10 @@ export function OwnerWallet() {
 
 export function OwnerDrivers() {
   const user = useUser()!;
-  const invites = useLuxy((s) => s.invites.filter((i) => i.owner_id === user.id));
-  const kyc = useLuxy((s) => s.driverKyc);
-  const invite = useLuxy((s) => s.inviteDriver);
-  const approve = useLuxy((s) => s.ownerApproveDriver);
+  const invites = useLuxyQuery((s) => s.invites.filter((i) => i.owner_id === user.id));
+  const kyc = useLuxyQuery((s) => s.driverKyc);
+  const invite = useLuxyQuery((s) => s.inviteDriver);
+  const approve = useLuxyQuery((s) => s.ownerApproveDriver);
   const [link, setLink] = useState("");
   const [err, setErr] = useState("");
   return (
@@ -467,22 +471,22 @@ export function OwnerDrivers() {
 
 export function OwnerEarnings() {
   const user = useUser()!;
-  const rows = useLuxy((s) => s.bookings.filter((b) => b.owner_id === user.id && b.escrow_status === "released"));
+  const rows = useLuxyQuery((s) => s.bookings.filter((b) => b.owner_id === user.id && b.escrow_status === "released"));
   return <div><PageTitle title="Earnings" sub="Only money Luxy has released." /><Stat label="Released" value={naira(rows.reduce((a, b) => a + b.owner_amount, 0))} /></div>;
 }
 
 export function OwnerReviews() {
   const user = useUser()!;
-  const cars = useLuxy((s) => s.cars.filter((c) => c.owner_id === user.id).map((c) => c.id));
-  const reviews = useLuxy((s) => s.reviews.filter((r) => cars.includes(r.car_id)));
+  const cars = useLuxyQuery((s) => s.cars.filter((c) => c.owner_id === user.id).map((c) => c.id));
+  const reviews = useLuxyQuery((s) => s.reviews.filter((r) => cars.includes(r.car_id)));
   return <div><PageTitle title="Reviews" />{reviews.length === 0 ? <Empty title="No guest reviews yet." /> : reviews.map((r) => <Card key={r.id}><p>{r.trip_rating}/5</p><p className="text-sm text-body">{r.review_text}</p></Card>)}</div>;
 }
 
 export function OwnerSettings() {
   const user = useUser()!;
-  const kyc = useLuxy((s) => s.ownerKyc[user.id]);
-  const save = useLuxy((s) => s.saveOwnerKyc);
-  const bio = useLuxy((s) => s.updateBio);
+  const kyc = useLuxyQuery((s) => s.ownerKyc[user.id]);
+  const save = useLuxyQuery((s) => s.saveOwnerKyc);
+  const bio = useLuxyQuery((s) => s.updateBio);
   return (
     <form className="max-w-lg space-y-3" onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); bio(String(fd.get("bio"))); save({ nin: String(fd.get("nin")), bvn: String(fd.get("bvn")), photo_id_type: String(fd.get("idt")), photo_id_number: String(fd.get("idn")), address: String(fd.get("address")), bank_name: String(fd.get("bank")), bank_account_name: String(fd.get("an")), bank_account_number: String(fd.get("ac")), company_name: String(fd.get("co") || ""), cac_number: String(fd.get("cac") || ""), tin: String(fd.get("tin") || ""), director_name: String(fd.get("dn") || ""), director_id: String(fd.get("di") || ""), director_bvn: String(fd.get("db") || ""), board_resolution_ref: String(fd.get("br") || ""), submitted_at: null }); }}>
       <PageTitle title="Settings" sub={`${user.owner_type} owner · limit ${carLimit(user)}`} />
@@ -512,19 +516,21 @@ export function OwnerSettings() {
 }
 
 export function DriverHome() {
-  const user = useUser()!;
-  const bookings = useLuxy((s) => s.bookings.filter((b) => b.driver_id === user.id));
-  const cars = useLuxy((s) => s.cars);
-  const reviews = useLuxy((s) => s.reviews);
-  const rating = driverRating(reviews, user.id);
+  const user = useUser();
+  const id = user?.id ?? "";
+  const bookings = useLuxyQuery((s) => s.bookings.filter((b) => b.driver_id === id));
+  const cars = useLuxyQuery((s) => s.cars);
+  const reviews = useLuxyQuery((s) => s.reviews);
+  const rating = driverRating(reviews, id);
   const today = new Date().toISOString().slice(0, 10);
+  if (!user) return <p className="p-6 text-sm text-body">Opening your dashboard…</p>;
   const todays = bookings.filter((b) => today >= b.start_date && today <= b.end_date && !b.status.startsWith("cancelled"));
   const next = bookings.find((b) => b.status === "confirmed");
   const done = bookings.filter((b) => b.status === "completed").length;
   const cancelled = bookings.filter((b) => b.status.startsWith("cancelled")).length;
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
-  const start = useLuxy((s) => s.startTrip);
+  const start = useLuxyQuery((s) => s.startTrip);
   return (
     <div className="space-y-4">
       <PageTitle title="Today" />
@@ -545,9 +551,9 @@ export function DriverHome() {
 
 export function DriverTrips() {
   const user = useUser()!;
-  const rows = useLuxy((s) => s.bookings.filter((b) => b.driver_id === user.id));
+  const rows = useLuxyQuery((s) => s.bookings.filter((b) => b.driver_id === user.id));
   const [tab, setTab] = useState("Pending Pickup");
-  const cars = useLuxy((s) => s.cars);
+  const cars = useLuxyQuery((s) => s.cars);
   const shown = rows.filter((b) => {
     const s = effectiveStatus(b);
     if (tab === "Pending Pickup") return s === "confirmed";
@@ -566,8 +572,8 @@ export function DriverTrips() {
 
 export function DriverVehicles() {
   const user = useUser()!;
-  const cars = useLuxy((s) => s.cars.filter((c) => c.driver_id === user.id));
-  const users = useLuxy((s) => s.users);
+  const cars = useLuxyQuery((s) => s.cars.filter((c) => c.driver_id === user.id));
+  const users = useLuxyQuery((s) => s.users);
   return (
     <div className="space-y-3">
       <PageTitle title="Vehicles" />
@@ -581,9 +587,9 @@ export function DriverVehicles() {
 
 export function DriverWallet() {
   const user = useUser()!;
-  const rows = useLuxy((s) => s.bookings.filter((b) => b.driver_id === user.id));
-  const payouts = useLuxy((s) => s.payouts.filter((p) => p.driver_id === user.id));
-  const request = useLuxy((s) => s.requestPayout);
+  const rows = useLuxyQuery((s) => s.bookings.filter((b) => b.driver_id === user.id));
+  const payouts = useLuxyQuery((s) => s.payouts.filter((p) => p.driver_id === user.id));
+  const request = useLuxyQuery((s) => s.requestPayout);
   const [err, setErr] = useState("");
   const w = wallet(rows, "driver_amount");
   const openSat = isSaturdayLagos();
@@ -601,15 +607,15 @@ export function DriverWallet() {
 
 export function DriverReviews() {
   const user = useUser()!;
-  const reviews = useLuxy((s) => s.reviews.filter((r) => r.driver_id === user.id && r.driver_rating != null));
+  const reviews = useLuxyQuery((s) => s.reviews.filter((r) => r.driver_id === user.id && r.driver_rating != null));
   return <div><PageTitle title="Ratings" />{reviews.length === 0 ? <Empty title="No driver ratings yet." /> : reviews.map((r) => <Card key={r.id}><p>{r.driver_rating}/5</p><p className="text-sm">{r.review_text}</p></Card>)}</div>;
 }
 
 export function DriverSettings() {
   const user = useUser()!;
-  const kyc = useLuxy((s) => s.driverKyc[user.id]);
-  const save = useLuxy((s) => s.saveDriverKyc);
-  const bio = useLuxy((s) => s.updateBio);
+  const kyc = useLuxyQuery((s) => s.driverKyc[user.id]);
+  const save = useLuxyQuery((s) => s.saveDriverKyc);
+  const bio = useLuxyQuery((s) => s.updateBio);
   return (
     <form className="max-w-lg space-y-3" onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); bio(String(fd.get("bio"))); save({ nin: String(fd.get("nin")), bvn: String(fd.get("bvn")), licence_number: String(fd.get("lic")), licence_expiry: String(fd.get("lex")), photo_id_type: String(fd.get("idt")), photo_id_number: String(fd.get("idn")), address: String(fd.get("address")), guarantor_name: String(fd.get("gn")), guarantor_id: String(fd.get("gi")), guarantor_phone: String(fd.get("gp")), bank_name: String(fd.get("bank")), bank_account_name: String(fd.get("an")), bank_account_number: String(fd.get("ac")), submitted_at: null }); }}>
       <PageTitle title="Settings" />

@@ -33,11 +33,13 @@ export function parseHome(raw: Record<string, unknown>): HomeSearch {
   };
 }
 
+const EMPTY_SEARCH: Record<string, unknown> = {};
+
 export function useRawSearch() {
   return useRouterState({
     select: (s) => {
       const q = s.location.search as unknown;
-      return q && typeof q === "object" ? (q as Record<string, unknown>) : {};
+      return q && typeof q === "object" ? (q as Record<string, unknown>) : EMPTY_SEARCH;
     },
   });
 }
@@ -48,9 +50,6 @@ export function HomePage() {
   const navigate = useNavigate();
   const cars = useLuxy((s) => s.cars);
   const bookings = useLuxy((s) => s.bookings);
-  useEffect(() => {
-    if (user) navigate({ href: landing(user.role) });
-  }, [user, navigate]);
 
   const settings = useLuxy((s) => s.settings);
   const locations = [...new Set(publicCars(cars).map((c) => c.state))].sort();
@@ -82,13 +81,34 @@ export function HomePage() {
 
   return (
     <StoreShell>
+      <section className="relative z-20 border-b border-line bg-card px-4 py-4 md:px-8">
+        <p className="text-sm font-medium text-ink">Open a dashboard</p>
+        <p className="mt-1 text-sm text-body">Tap a role. Password for every account is luxy2026.</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-4">
+          {[
+            ["Customer", "customer"],
+            ["Car owner", "owner"],
+            ["Driver", "driver"],
+            ["Admin", "admin"],
+          ].map(([label, role]) => (
+            <a
+              key={role}
+              data-open={role}
+              href={`/open/${role}`}
+              className="flex min-h-11 items-center justify-center rounded-lg bg-accent px-3 text-sm font-medium text-card"
+            >
+              {label}
+            </a>
+          ))}
+        </div>
+      </section>
       <section className="relative min-h-[70vh] overflow-hidden bg-sidebar text-card">
         <img
           src="https://images.unsplash.com/photo-1631295868223-63265b40d9e4?auto=format&fit=crop&w=2000&q=80"
           alt="A white Rolls-Royce on a quiet street"
-          className="absolute inset-0 h-full w-full object-cover opacity-40"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-40"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-sidebar via-sidebar/85 to-sidebar/55" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-sidebar via-sidebar/85 to-sidebar/55" />
         <div className="relative mx-auto flex min-h-[70vh] max-w-5xl flex-col justify-end px-4 py-16 md:px-8">
           <p className="text-xs tracking-[0.22em] text-tint uppercase">Nigeria · with a driver</p>
           <h1 className="mt-3 max-w-xl font-serif text-5xl leading-tight text-card md:text-6xl">Drive the Extraordinary</h1>

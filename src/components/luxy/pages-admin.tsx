@@ -2,15 +2,15 @@ import { useState } from "react";
 import { Btn, Card, Empty, ErrorNote, Field, PageTitle, Pill, Stat, StatusPill, Stub, inputClass } from "@/components/luxy/bits";
 import { DonutBlock, LineBlock } from "@/components/luxy/charts";
 import { billedDays, effectiveStatus, isPublicCar, naira, wallet } from "@/lib/luxy/pricing";
-import { useLuxy } from "@/lib/luxy/store";
+import { useLuxy, useLuxyQuery } from "@/lib/luxy/store";
 import type { Role } from "@/lib/luxy/types";
 
 const KINDS: Record<string, Role> = { customers: "customer", owners: "owner", drivers: "driver", admins: "admin" };
 
 export function AdminHome() {
-  const bookings = useLuxy((s) => s.bookings);
-  const users = useLuxy((s) => s.users);
-  const cars = useLuxy((s) => s.cars);
+  const bookings = useLuxyQuery((s) => s.bookings);
+  const users = useLuxyQuery((s) => s.users);
+  const cars = useLuxyQuery((s) => s.cars);
   const released = bookings.filter((b) => b.escrow_status === "released");
   const revenue = released.reduce((a, b) => a + b.platform_fee, 0);
   const active = bookings.filter((b) => ["active", "overdue"].includes(effectiveStatus(b))).length;
@@ -57,10 +57,10 @@ export function AdminHome() {
 
 export function AdminUsers({ kind }: { kind: string }) {
   const role = KINDS[kind] ?? "customer";
-  const users = useLuxy((s) => s.users.filter((u) => u.role === role));
+  const users = useLuxyQuery((s) => s.users.filter((u) => u.role === role));
   const [id, setId] = useState<string | null>(null);
-  const all = useLuxy((s) => s);
-  const setLimit = useLuxy((s) => s.setCarLimit);
+  const all = useLuxyQuery((s) => s);
+  const setLimit = useLuxyQuery((s) => s.setCarLimit);
   const person = users.find((u) => u.id === id);
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
@@ -93,9 +93,9 @@ export function AdminUsers({ kind }: { kind: string }) {
 }
 
 export function AdminVehicles() {
-  const cars = useLuxy((s) => s.cars);
-  const approve = useLuxy((s) => s.adminApproveCar);
-  const reject = useLuxy((s) => s.adminRejectCar);
+  const cars = useLuxyQuery((s) => s.cars);
+  const approve = useLuxyQuery((s) => s.adminApproveCar);
+  const reject = useLuxyQuery((s) => s.adminRejectCar);
   const [reason, setReason] = useState("Documents do not match.");
   const [err, setErr] = useState("");
   return (
@@ -125,7 +125,7 @@ export function AdminVehicles() {
 }
 
 export function AdminBookings() {
-  const bookings = useLuxy((s) => s.bookings);
+  const bookings = useLuxyQuery((s) => s.bookings);
   const [id, setId] = useState<string | null>(null);
   const b = bookings.find((x) => x.id === id);
   return (
@@ -145,10 +145,10 @@ export function AdminBookings() {
 }
 
 export function AdminPayments() {
-  const bookings = useLuxy((s) => s.bookings);
-  const approve = useLuxy((s) => s.approvePayment);
-  const payouts = useLuxy((s) => s.payouts);
-  const mark = useLuxy((s) => s.markPayoutPaid);
+  const bookings = useLuxyQuery((s) => s.bookings);
+  const approve = useLuxyQuery((s) => s.approvePayment);
+  const payouts = useLuxyQuery((s) => s.payouts);
+  const mark = useLuxyQuery((s) => s.markPayoutPaid);
   const [ref, setRef] = useState("");
   const [err, setErr] = useState("");
   const queue = bookings.filter((b) => b.escrow_status === "pending_approval");
@@ -175,12 +175,12 @@ export function AdminPayments() {
 }
 
 export function AdminDisputes() {
-  const bookings = useLuxy((s) => s.bookings);
-  const support = useLuxy((s) => s.support);
-  const end = useLuxy((s) => s.endTrip);
-  const cancel = useLuxy((s) => s.adminCancelPost);
-  const approveCode = useLuxy((s) => s.approveCodeRequest);
-  const resolve = useLuxy((s) => s.resolveSupport);
+  const bookings = useLuxyQuery((s) => s.bookings);
+  const support = useLuxyQuery((s) => s.support);
+  const end = useLuxyQuery((s) => s.endTrip);
+  const cancel = useLuxyQuery((s) => s.adminCancelPost);
+  const approveCode = useLuxyQuery((s) => s.approveCodeRequest);
+  const resolve = useLuxyQuery((s) => s.resolveSupport);
   const [err, setErr] = useState("");
   const overdue = bookings.filter((b) => effectiveStatus(b) === "overdue");
   const codes = bookings.filter((b) => b.code_requested && b.status === "confirmed");
@@ -215,17 +215,17 @@ export function AdminDisputes() {
 }
 
 export function AdminEarnings() {
-  const bookings = useLuxy((s) => s.bookings.filter((b) => b.escrow_status === "released"));
+  const bookings = useLuxyQuery((s) => s.bookings.filter((b) => b.escrow_status === "released"));
   return <div><PageTitle title="Earnings" /><Stat label="Platform fee released" value={naira(bookings.reduce((a, b) => a + b.platform_fee, 0))} /></div>;
 }
 
 export function AdminReviews() {
-  const reviews = useLuxy((s) => s.reviews);
+  const reviews = useLuxyQuery((s) => s.reviews);
   return <div><PageTitle title="Reviews" />{reviews.map((r) => <Card key={r.id} className="mb-2"><p>{r.trip_rating}/5 · {r.review_text || "No comment"}</p></Card>)}{reviews.length === 0 ? <Empty title="No reviews." /> : null}</div>;
 }
 
 export function AdminReports() {
-  const bookings = useLuxy((s) => s.bookings);
+  const bookings = useLuxyQuery((s) => s.bookings);
   const customers = new Set(bookings.map((b) => b.customer_id));
   const repeats = [...customers].filter((id) => bookings.filter((b) => b.customer_id === id).length > 1).length;
   const cancelled = bookings.filter((b) => b.status.startsWith("cancelled")).length;
@@ -245,12 +245,12 @@ export function AdminReports() {
 }
 
 export function AdminSettings() {
-  const settings = useLuxy((s) => s.settings);
-  const update = useLuxy((s) => s.updateSettings);
-  const users = useLuxy((s) => s.users);
-  const invites = useLuxy((s) => s.invites);
-  const approve = useLuxy((s) => s.adminApproveDriver);
-  const kyc = useLuxy((s) => s.driverKyc);
+  const settings = useLuxyQuery((s) => s.settings);
+  const update = useLuxyQuery((s) => s.updateSettings);
+  const users = useLuxyQuery((s) => s.users);
+  const invites = useLuxyQuery((s) => s.invites);
+  const approve = useLuxyQuery((s) => s.adminApproveDriver);
+  const kyc = useLuxyQuery((s) => s.driverKyc);
   const [err, setErr] = useState("");
   const waiting = invites.filter((i) => i.owner_approved_at && !i.admin_approved_at);
   return (
@@ -281,16 +281,16 @@ export function AdminSettings() {
 }
 
 export function AdminLocations() {
-  const cars = useLuxy((s) => s.cars);
+  const cars = useLuxyQuery((s) => s.cars);
   const states = [...new Set(cars.map((c) => c.state))];
   return <div><PageTitle title="Locations" />{states.map((s) => <Card key={s} className="mb-2"><h2 className="font-medium">{s}</h2><p className="text-sm text-body">{cars.filter((c) => c.state === s).map((c) => c.name).join(", ")}</p></Card>)}</div>;
 }
 
 export function AdminSearch() {
   const [q, setQ] = useState("");
-  const users = useLuxy((s) => s.users);
-  const cars = useLuxy((s) => s.cars);
-  const bookings = useLuxy((s) => s.bookings);
+  const users = useLuxyQuery((s) => s.users);
+  const cars = useLuxyQuery((s) => s.cars);
+  const bookings = useLuxyQuery((s) => s.bookings);
   const query = q.trim().toLowerCase();
   const hit = query.length < 2;
   return (
